@@ -1,12 +1,19 @@
 # IME Input Support for Kenshi
+---
+This mod adds Japanese IME (Input Method Editor) input support to Kenshi, allowing players using Japanese input methods such as Microsoft / Google IME to type Japanese characters directly into in-game text fields. Without this mod, Japanese text input is not functional in Kenshi, forcing users to type in an external application like Notepad and copy-paste the result.
 
-This mod adds Japanese IME (Input Method Editor) input support to Kenshi, allowing players using Japanese input methods such as Microsoft IME to type Japanese characters directly into in-game text fields. Without this mod, Japanese text input is not functional in Kenshi, forcing users to type in an external application like Notepad and copy-paste the result.
-
+---
 ## What it does
-When you type using a Japanese IME, the mod intercepts the composition input, waits for you to confirm your selection, and then injects the finalized characters directly into the active MyGUI text field. Standard Latin keyboard input is completely unaffected.
+When you type using a Japanese IME, the mod
+- intercepts the composition input
+- waits for you to confirm your selection
+- injects the finalized characters directly into the active MyGUI text field. 
+
+**Standard Latin keyboard input is completely unaffected.**
 
 ## Compatibility
-This should work with the current version of Microsoft IME, but if you're having issues, set Microsoft IME to the previous version for compatibility.
+- Works with the current version of Microsoft IME, but if you're having issues, set Microsoft IME to the previous version for compatibility.
+- Works with TSF-based IME's like Google Input Tools (Google IME)
 
 This should also work with other languages that use IMEs, like Chinese and Korean, though this has not been personally tested.
 
