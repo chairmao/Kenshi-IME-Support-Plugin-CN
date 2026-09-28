@@ -50,6 +50,7 @@
     <IncludePath>include;$(KENSHILIB_DIR)\Include;$(IncludePath)</IncludePath>
     <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(LibraryPath)</LibraryPath>
     <SourcePath>src;$(SourcePath)</SourcePath>
+    <TargetName>IME Support Plugin</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
