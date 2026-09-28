@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    KenshiMods.Deps.props  (copy shipped inside this repository)
+
+    作用：给 .vcxproj 提供 KenshiLib / boost 的 IncludePath 与 LibraryPath，
+    这样项目不需要依赖任何环境变量即可配置。
+
+    使用方式（任选其一）：
+      1) 直接让 .vcxproj 导入本文件（本仓库已默认这样做，见 vcxproj 里的条件导入）
+      2) VS：视图 -> 属性管理器 -> 添加现有属性表 -> 选择本文件
+      3) 在 .vcxproj 里自行 Import，位置放在 Microsoft.Cpp.props 之后
+
+    依赖目录布局（本默认值对应开发者的工作区）：
+      <仓库>\..\..\1.Dependencies\KenshiLib_0.5.1\   KenshiLib v0.5.1（Include\ / Libraries\）
+      <仓库>\..\..\1.Dependencies\boost_1_60_0\      boost 1.60.0（头文件 + stage\lib）
+
+    ★ 如果你的依赖放在别处：改下面 KenshiDepsRoot 这一行即可；
+      也可以在命令行/MSBuild 里覆盖，例如
+        msbuild /p:KenshiLibDir=D:\deps\KenshiLib_0.5.1 /p:BoostDir=D:\deps\boost_1_60_0
+
+    注意：PlatformToolset 故意不在这里设置（属性表导入得太晚，影响不了工具集解析，
+    请在 .vcxproj 里设置 v100）。
+  -->
+  <PropertyGroup Label="UserMacros">
+    <KenshiDepsRoot Condition="'$(KenshiDepsRoot)' == ''">$(MSBuildThisFileDirectory)..\..\1.Dependencies</KenshiDepsRoot>
+    <KenshiLibDir Condition="'$(KenshiLibDir)' == ''">$(KenshiDepsRoot)\KenshiLib_0.5.1</KenshiLibDir>
+    <BoostDir Condition="'$(BoostDir)' == ''">$(KenshiDepsRoot)\boost_1_60_0</BoostDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IncludePath>$(KenshiLibDir)\Include;$(KenshiLibDir)\Include\kenshi;$(KenshiLibDir)\Include\ogre;$(BoostDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(KenshiLibDir)\Libraries;$(BoostDir)\stage\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+</Project>

@@ -33,6 +33,18 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <!-- KenshiLib + boost locations.
+       Preference order:
+         1) the copy shipped inside this repo   (KenshiMods.Deps.props)
+         2) one level up, for a multi-mod workspace sharing a single sheet
+         3) nothing - the project still configures; then either add a sheet via
+            View -> Property Manager, or pass /p:KenshiLibDir=... /p:BoostDir=...
+       Both imports are conditional so a fresh clone never hard-fails just because
+       the dependency sheet lives somewhere else. -->
+  <Import Project="$(MSBuildThisFileDirectory)KenshiMods.Deps.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)KenshiMods.Deps.props')" />
+  <Import Project="$(MSBuildThisFileDirectory)..\KenshiMods.Deps.props"
+          Condition="!Exists('$(MSBuildThisFileDirectory)KenshiMods.Deps.props') And Exists('$(MSBuildThisFileDirectory)..\KenshiMods.Deps.props')" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -45,11 +57,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
-    <IntDir>obj\$(Configuration)\</IntDir>
-    <IncludePath>include;$(KENSHILIB_DIR)\Include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(KENSHILIB_DIR)\Libraries\mygui;$(KENSHILIB_DIR)\Libraries\kenshilib;$(LibraryPath)</LibraryPath>
-    <SourcePath>src;$(SourcePath)</SourcePath>
+    <OutDir>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntDir>
+    <IncludePath>$(MSBuildThisFileDirectory)include;$(IncludePath)</IncludePath>
+    <SourcePath>$(MSBuildThisFileDirectory)src;$(SourcePath)</SourcePath>
     <TargetName>IME Support Plugin</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -71,9 +82,10 @@
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
