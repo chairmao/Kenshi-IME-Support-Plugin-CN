@@ -48,7 +48,7 @@
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
     <IntDir>obj\$(Configuration)\</IntDir>
     <IncludePath>include;$(KENSHILIB_DIR)\Include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(KENSHILIB_DIR)\Libraries\mygui;$(KENSHILIB_DIR)\Libraries\kenshilib;$(LibraryPath)</LibraryPath>
     <SourcePath>src;$(SourcePath)</SourcePath>
     <TargetName>IME Support Plugin</TargetName>
   </PropertyGroup>

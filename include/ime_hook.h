@@ -4,6 +4,8 @@
 #include <Windows.h>
 #include <imm.h>
 
+#pragma comment(lib, "imm32.lib")
+
 namespace ImeHook
 {
     // Called from DllMain/InitThread to install the WndProc hook
@@ -11,6 +13,6 @@ namespace ImeHook
 
     // Called from startPlugin() to install the MyGUI::InputManager::injectKeyPress hook
     void InstallKeyHooks();
-
+    void EnsureInstalled();
     LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 }

@@ -3,6 +3,7 @@
 #include "Debug.h"
 #include "core\Functions.h"
 #include "mygui\MyGUI_InputManager.h"
+#include <queue>
 
 namespace
 {
@@ -15,6 +16,15 @@ namespace
     // Tracks IME state
     bool g_imeOpen = false;        // IME is enabled (e.g. Japanese/Chinese input active)
     bool g_imeComposing = false;  // IME is actively composing text (pre-confirmation phase)
+
+    // WH_GETMESSAGE hook handle to capture WM_CHAR / WM_IME_CHAR from TSF IMEs
+    HHOOK g_hGetMsgHook = nullptr;
+
+    // FIFO for characters captured by the hook (UTF-16 wchar_t)
+    std::queue<wchar_t> g_charQueue;
+
+    // Synchronize access to g_charQueue
+    CRITICAL_SECTION g_cs;
 
     // Enumerates all top-level windows to find this process's main visible window
     BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM)
@@ -51,10 +61,76 @@ namespace
 
         BOOL open = ImmGetOpenStatus(hIMC);
         ImmReleaseContext(hWnd, hIMC);
-
         return open == TRUE;
     }
 
+    LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam)
+    {
+        if (nCode >= 0)
+        {
+            MSG* pMsg = (MSG*)lParam;
+
+            // Capture WM_CHAR/WM_IME_CHAR for the game window and queue them
+            if (pMsg->hwnd == g_hwnd || IsChild(g_hwnd, pMsg->hwnd))
+            {
+                if (pMsg->message == WM_CHAR || pMsg->message == WM_IME_CHAR)
+                {
+                    EnterCriticalSection(&g_cs);
+                    g_charQueue.push((wchar_t)pMsg->wParam);
+                    LeaveCriticalSection(&g_cs);
+                }
+            }
+        }
+        return CallNextHookEx(g_hGetMsgHook, nCode, wParam, lParam);
+    }
+
+    void ProcessQueuedChars()
+    {
+        if (!MyGUI::InputManager::getInstancePtr())
+            return;
+
+        auto& im = MyGUI::InputManager::getInstance();
+        if (!im.isFocusKey())
+            return;
+
+        // Drain queued characters and inject them into MyGUI as text input.
+        EnterCriticalSection(&g_cs);
+        while (!g_charQueue.empty())
+        {
+            wchar_t ch = g_charQueue.front();
+            g_charQueue.pop();
+            LeaveCriticalSection(&g_cs);
+
+            // Inject as text-only key press (KeyCode::None)
+            im.injectKeyPress(MyGUI::KeyCode::None, (MyGUI::Char)ch);
+            im.injectKeyRelease(MyGUI::KeyCode::None);
+
+            EnterCriticalSection(&g_cs);
+        }
+        LeaveCriticalSection(&g_cs);
+    }
+
+    bool InstallTSF()
+    {
+        // Init sync and install thread-local WH_GETMESSAGE hook
+        InitializeCriticalSection(&g_cs);
+        g_hGetMsgHook = SetWindowsHookExW(WH_GETMESSAGE, GetMsgProc, nullptr, GetCurrentThreadId());
+        if (!g_hGetMsgHook)
+            return false;
+
+        return true;
+    }
+
+    void CleanupTSF()
+    {
+        // Uninstall hook and cleanup
+        if (g_hGetMsgHook)
+        {
+            UnhookWindowsHookEx(g_hGetMsgHook);
+            g_hGetMsgHook = nullptr;
+        }
+        DeleteCriticalSection(&g_cs);
+    }
 
     // Pointer to original MyGUI input function
     bool (*injectKeyPress_orig)(MyGUI::InputManager* thisptr, MyGUI::KeyCode _key, MyGUI::Char _text) = 0;
@@ -62,6 +138,8 @@ namespace
     // Hooked version of MyGUI::InputManager::injectKeyPress
     bool InjectKeyPress_hook(MyGUI::InputManager* thisptr, MyGUI::KeyCode key, MyGUI::Char text)
     {
+        ProcessQueuedChars();
+
         // If IME is open, suppress normal key presses
         if (g_imeOpen && key != MyGUI::KeyCode::None)
         {
@@ -76,21 +154,18 @@ namespace
             case MyGUI::KeyCode::ArrowDown:
             case MyGUI::KeyCode::Return:
             case MyGUI::KeyCode::Escape:
-
             case MyGUI::KeyCode::Home:
             case MyGUI::KeyCode::End:
             case MyGUI::KeyCode::PageUp:
             case MyGUI::KeyCode::PageDown:
             case MyGUI::KeyCode::Tab:
             case MyGUI::KeyCode::Insert:
-
             case MyGUI::KeyCode::LeftShift:
             case MyGUI::KeyCode::RightShift:
             case MyGUI::KeyCode::LeftControl:
             case MyGUI::KeyCode::RightControl:
             case MyGUI::KeyCode::LeftAlt:
             case MyGUI::KeyCode::RightAlt:
-
             case MyGUI::KeyCode::Convert:
                 break; // allowed
             default:
@@ -107,7 +182,6 @@ namespace
         // Forward to original function if not blocked
         return injectKeyPress_orig(thisptr, key, text);
     }
-
 }
 
 namespace ImeHook
@@ -127,7 +201,8 @@ namespace ImeHook
 
         // Replace WndProc with our hook
         SetWindowLongPtr(g_hwnd, GWLP_WNDPROC, (LONG_PTR)WndProc);
-        return true;
+
+        return InstallTSF();
     }
 
     void InstallKeyHooks()
@@ -147,7 +222,7 @@ namespace ImeHook
         // Install hook
         if (KenshiLib::SUCCESS != KenshiLib::AddHook(injectKeyPressAddr, &InjectKeyPress_hook, &injectKeyPress_orig))
         {
-			ErrorLog("Failed to install injectKeyPress hook\n");
+            ErrorLog("Failed to install injectKeyPress hook\n");
         }
     }
 
@@ -219,13 +294,13 @@ namespace ImeHook
                 return 0;
             return CallWindowProc(g_originalWndProc, hWnd, uMsg, wParam, lParam);
 
-        // Ignore IME-generated WM_IME_CHAR (we handle composition manually)
+        // Swallow WM_IME_CHAR to avoid double-inject when using hook/GCS_RESULTSTR
         case WM_IME_CHAR:
             return 0;
 
         case WM_IME_COMPOSITION:
         {
-            // Let original WndProc process it first
+            // Call original WndProc first
             LRESULT result = CallWindowProc(g_originalWndProc, hWnd, uMsg, wParam, lParam);
 
             // If composition produced a finalized string
@@ -236,14 +311,13 @@ namespace ImeHook
                 {
                     // Get required buffer size
                     LONG size = ImmGetCompositionStringW(hIMC, GCS_RESULTSTR, NULL, 0);
-
                     if (size > 0)
                     {
                         // Retrieve composed UTF-16 string
                         std::wstring text(size / sizeof(wchar_t), L'\0');
                         ImmGetCompositionStringW(hIMC, GCS_RESULTSTR, &text[0], size);
 
-                        // Inject resulting characters into MyGUI manually
+                        // Inject resulting characters into MyGUI
                         if (MyGUI::InputManager::getInstancePtr())
                         {
                             auto& im = MyGUI::InputManager::getInstance();
@@ -265,7 +339,6 @@ namespace ImeHook
             }
             return result;
         }
-
         default:
             // Forward all unhandled messages
             return CallWindowProc(g_originalWndProc, hWnd, uMsg, wParam, lParam);
